@@ -72,17 +72,41 @@ public sealed class DigestSchedulerService : BackgroundService
 
     private TimeSpan TimeUntilNextRun()
     {
-        var runTime = ParseRunTime(_options.DailyRunTime);
         var now = DateTimeOffset.Now;
-        var next = new DateTimeOffset(
-            now.Year, now.Month, now.Day, runTime.Hours, runTime.Minutes, 0, now.Offset);
+        DateTimeOffset? soonest = null;
 
-        if (next <= now)
+        foreach (var runTime in GetRunTimes())
         {
-            next = next.AddDays(1);
+            var candidate = new DateTimeOffset(
+                now.Year, now.Month, now.Day, runTime.Hours, runTime.Minutes, 0, now.Offset);
+
+            if (candidate <= now)
+            {
+                candidate = candidate.AddDays(1);
+            }
+
+            if (soonest is null || candidate < soonest)
+            {
+                soonest = candidate;
+            }
         }
 
-        return next - now;
+        return (soonest ?? now.AddDays(1)) - now;
+    }
+
+    private IReadOnlyList<TimeSpan> GetRunTimes()
+    {
+        var raw = _options.DailyRunTimes is { Count: > 0 }
+            ? _options.DailyRunTimes
+            : new List<string> { _options.DailyRunTime };
+
+        var times = raw
+            .Select(ParseRunTime)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList();
+
+        return times.Count > 0 ? times : new List<TimeSpan> { new(8, 0, 0) };
     }
 
     private TimeSpan ParseRunTime(string value)
