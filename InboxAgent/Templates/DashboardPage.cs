@@ -49,7 +49,7 @@ internal static class DashboardPage
         // Toolbar
         sb.Append("<div class=\"toolbar\">");
         sb.Append("<form method=\"post\" action=\"/refresh\"><button class=\"btn btn-primary\" type=\"submit\" onclick=\"beep()\">↻ Check inbox now</button></form>");
-        sb.Append("<button class=\"btn btn-ghost\" type=\"button\" onclick=\"beep()\">🔔 Test sound</button>");
+        sb.Append("<button class=\"btn btn-ghost\" type=\"button\" onclick=\"alertChime()\">🔔 Test sound</button>");
         sb.Append($"<span class=\"updated\">Updated {WebUtility.HtmlEncode(snapshot.GeneratedAt.ToString("ddd, dd MMM · HH:mm"))}</span>");
         sb.Append("</div>");
 
@@ -152,10 +152,21 @@ internal static class DashboardPage
         // Browsers may require one interaction before audio is allowed, so any
         // click on the page also unlocks it, and the buttons above call beep().
         sb.Append("<script>");
+        // A single chime.
         sb.Append("function beep(){try{var C=window.AudioContext||window.webkitAudioContext;var c=new C();if(c.state==='suspended'){c.resume();}var o=c.createOscillator();var g=c.createGain();o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.setValueAtTime(880,c.currentTime);o.frequency.setValueAtTime(1175,c.currentTime+0.15);g.gain.setValueAtTime(0.001,c.currentTime);g.gain.exponentialRampToValueAtTime(0.3,c.currentTime+0.03);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+0.6);o.start();o.stop(c.currentTime+0.6);}catch(e){}}");
+        // A louder 3-chime alert so a missed notification is hard to overlook.
+        sb.Append("function alertChime(){beep();setTimeout(beep,700);setTimeout(beep,1400);}");
         sb.Append($"var HAS_INTERVIEWS={(interviewCount > 0 ? "true" : "false")};");
-        sb.Append("window.addEventListener('load',function(){if(HAS_INTERVIEWS){beep();}});");
-        sb.Append("document.addEventListener('click',function(){var C=window.AudioContext||window.webkitAudioContext;try{new C().resume();}catch(e){}},{once:true});");
+        // On load, if there are interview emails, play the alert. Because browsers
+        // block audio until the user interacts with the page, we also arm a
+        // one-time unlock on the first click/keypress that plays the alert then.
+        sb.Append("var alerted=false;function fireAlert(){if(HAS_INTERVIEWS&&!alerted){alerted=true;alertChime();}}");
+        sb.Append("window.addEventListener('load',function(){fireAlert();});");
+        sb.Append("document.addEventListener('click',function(){var C=window.AudioContext||window.webkitAudioContext;try{new C().resume();}catch(e){}fireAlert();},{once:true});");
+        sb.Append("document.addEventListener('keydown',function(){fireAlert();},{once:true});");
+        // Reminder: if the tab stays open and there are still interview emails,
+        // replay the chime every 5 minutes so a missed alert keeps nudging you.
+        sb.Append("if(HAS_INTERVIEWS){setInterval(function(){if(document.visibilityState==='visible'){beep();}},300000);}");
         sb.Append("</script>");
         sb.Append("</body></html>");
         return sb.ToString();
