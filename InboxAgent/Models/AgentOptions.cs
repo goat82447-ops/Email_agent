@@ -56,8 +56,17 @@ public sealed class ScheduleOptions
 {
     public const string SectionName = "Schedule";
 
-    /// <summary>Local time of day (24-hour "HH:mm") to send the digest.</summary>
+    /// <summary>
+    /// Legacy single local time of day (24-hour "HH:mm"). Used only when
+    /// <see cref="DailyRunTimes"/> is empty.
+    /// </summary>
     public string DailyRunTime { get; set; } = "08:00";
+
+    /// <summary>
+    /// One or more local times of day (24-hour "HH:mm") to run the scan.
+    /// E.g. ["08:30", "20:30"] for morning and night.
+    /// </summary>
+    public List<string> DailyRunTimes { get; set; } = new();
 
     /// <summary>Send one digest immediately when the agent starts.</summary>
     public bool RunImmediatelyOnStart { get; set; } = true;
